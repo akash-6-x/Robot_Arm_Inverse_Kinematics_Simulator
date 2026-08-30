@@ -41,6 +41,21 @@ def inverse_kinematics(L1, L2, target_x, target_y):
         )
     )
 
+    # Check joint limits
+    if not (THETA1_MIN <= theta1 <= THETA1_MAX):
+        print(
+            "Target rejected: Theta 1 is outside "
+            "the joint limits.\n"
+        )
+        return None
+
+    if not (THETA2_MIN <= theta2 <= THETA2_MAX):
+        print(
+            "Target rejected: Theta 2 is outside "
+            "the joint limits.\n"
+        )
+        return None
+
     return theta1, theta2
 
 
@@ -164,7 +179,15 @@ def move_robot(
 L1 = 5
 L2 = 4
 
+# ==========================================
+# Joint Limits
+# ==========================================
 
+THETA1_MIN = np.radians(-90)
+THETA1_MAX = np.radians(90)
+
+THETA2_MIN = np.radians(0)
+THETA2_MAX = np.radians(180)
 # ==========================================
 # Starting joint angles
 # ==========================================
