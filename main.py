@@ -2,18 +2,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-
 # ==========================================
 # Inverse Kinematics
 # ==========================================
-
 def inverse_kinematics(L1, L2, target_x, target_y):
 
+    # --------------------------------------
     # Distance from base to target
+    # --------------------------------------
+
     r_squared = target_x ** 2 + target_y ** 2
     distance = np.sqrt(r_squared)
 
+    # --------------------------------------
     # Check whether target is reachable
+    # --------------------------------------
+
     if distance > L1 + L2:
         print("Target is unreachable: too far away.\n")
         return None
@@ -22,71 +26,229 @@ def inverse_kinematics(L1, L2, target_x, target_y):
         print("Target is unreachable: too close to the base.\n")
         return None
 
-    # Calculate theta 2
-    cos_theta2 = (
+    # --------------------------------------
+    # Calculate the elbow angle magnitude.
+    #
+    # This gives the two possible elbow
+    # configurations:
+    #
+    # +elbow_angle = anticlockwise elbow bend
+    # -elbow_angle = clockwise elbow bend
+    # --------------------------------------
+
+    cos_elbow = (
         r_squared - L1 ** 2 - L2 ** 2
     ) / (2 * L1 * L2)
 
-    # Protect against tiny floating-point errors
-    cos_theta2 = np.clip(cos_theta2, -1, 1)
+    cos_elbow = np.clip(cos_elbow, -1, 1)
 
-    theta2 = np.arccos(cos_theta2)
+    elbow_angle = np.arccos(cos_elbow)
 
-    # Calculate theta 1
-    theta1 = (
-        np.arctan2(target_y, target_x)
-        - np.arctan2(
-            L2 * np.sin(theta2),
-            L1 + L2 * np.cos(theta2)
-        )
+    # --------------------------------------
+    # Target direction
+    # --------------------------------------
+
+    target_angle = np.arctan2(
+        target_y,
+        target_x
     )
 
-    # Check joint limits
-    if not (THETA1_MIN <= theta1 <= THETA1_MAX):
-        print(
-            "Target rejected: Theta 1 is outside "
-            "the joint limits.\n"
+    # --------------------------------------
+    # Generate BOTH mathematical solutions
+    # --------------------------------------
+
+    possible_solutions = []
+
+    # ----------------------------------
+    # Only use the natural elbow bend.
+    #
+    # theta2 must NEVER be negative.
+    # Negative theta2 would make the elbow
+    # bend backward / in the opposite direction.
+    #
+    # Therefore we intentionally reject the
+    # negative elbow configuration.
+    # ----------------------------------
+
+    for signed_theta2 in [
+        elbow_angle
+    ]:
+
+        # ----------------------------------
+        # Mathematical angle of upper arm
+        # ----------------------------------
+
+        alpha1 = (
+            target_angle
+            - np.arctan2(
+                L2 * np.sin(signed_theta2),
+                L1 + L2 * np.cos(signed_theta2)
+            )
         )
+
+        # ----------------------------------
+        # Convert upper-arm direction into
+        # our robot theta1 convention:
+        #
+        # 0°   = DOWN
+        # +     = ANTICLOCKWISE
+        # -     = CLOCKWISE
+        # ----------------------------------
+
+        theta1 = alpha1 + np.pi / 2
+
+        # ----------------------------------
+        # Normalize theta1 into a useful
+        # range around the robot's limits.
+        # ----------------------------------
+
+        theta1 = (theta1 + np.pi) % (2 * np.pi) - np.pi
+
+        # ----------------------------------
+        # Check shoulder limit
+        # ----------------------------------
+
+        if not (
+            THETA1_MIN <= theta1 <= THETA1_MAX
+        ):
+            continue
+
+        # ----------------------------------
+        # theta2 is RELATIVE to the upper arm.
+        #
+        # + = elbow rotates ANTICLOCKWISE
+        # - = elbow rotates CLOCKWISE
+        #
+        # This is the signed mathematical
+        # representation used by FK.
+        # ----------------------------------
+
+        theta2 = signed_theta2
+        theta2_degrees = np.degrees(theta2)
+
+        # ----------------------------------
+        # HARD RULE:
+        #
+        # theta2 can NEVER be negative.
+        #
+        # Negative theta2 = backward/
+        # unnatural elbow bend.
+        # ----------------------------------
+
+        if not (
+            THETA2_SIGNED_MIN_DEG
+            <= theta2_degrees
+            <= THETA2_SIGNED_MAX_DEG
+        ):
+            continue
+
+        # ----------------------------------
+        # Servo representation
+        #
+        # Since valid theta2 is always
+        # non-negative, the servo angle is
+        # simply the same 0°-180° value.
+        # ----------------------------------
+
+        theta2_servo = theta2_degrees
+
+        # ----------------------------------
+        # Check physical servo limit
+        # ----------------------------------
+
+        if not (
+            THETA2_MIN_DEG
+            <= theta2_servo
+            <= THETA2_MAX_DEG
+        ):
+            continue
+
+        # ----------------------------------
+        # Valid configuration
+        # ----------------------------------
+
+        possible_solutions.append(
+            (
+                theta1,
+                theta2,
+                theta2_servo
+            )
+        )
+
+    # --------------------------------------
+    # No valid configuration
+    # --------------------------------------
+
+    if not possible_solutions:
+
+        print(
+            "Target rejected: no valid joint "
+            "configuration exists within the limits.\n"
+        )
+
         return None
 
-    if not (THETA2_MIN <= theta2 <= THETA2_MAX):
-        print(
-            "Target rejected: Theta 2 is outside "
-            "the joint limits.\n"
-        )
-        return None
+    # --------------------------------------
+    # Choose the first valid configuration
+    # --------------------------------------
 
-    return theta1, theta2
+    theta1, theta2, theta2_servo = possible_solutions[0]
+
+    return theta1, theta2, theta2_servo
 
 
 # ==========================================
-# Animation
+# Forward Kinematics
 # ==========================================
-# ==========================================
-# Interactive Robot
-# ==========================================
-
 def robot_position(L1, L2, theta1, theta2):
 
     x0 = 0
     y0 = 0
 
-    x1 = L1 * np.cos(theta1)
-    y1 = L1 * np.sin(theta1)
+    # --------------------------------------
+    # First link
+    #
+    # theta1 = 0° means DOWN
+    # positive = ANTICLOCKWISE
+    # negative = CLOCKWISE
+    # --------------------------------------
+
+    x1 = L1 * np.sin(theta1)
+    y1 = -L1 * np.cos(theta1)
+
+    # --------------------------------------
+    # Second link
+    #
+    # theta2 is RELATIVE to the upper arm.
+    #
+    # theta2 = 0°  -> forearm continues
+    #                straight from upper arm
+    #
+    # theta2 > 0°  -> elbow bends
+    #                ANTICLOCKWISE
+    #
+    # theta2 < 0°  -> NOT ALLOWED
+    #                (backward/unnatural bend)
+    # --------------------------------------
+
+    forearm_angle = theta1 + theta2
 
     x2 = (
         x1
-        + L2 * np.cos(theta1 + theta2)
+        + L2 * np.sin(forearm_angle)
     )
 
     y2 = (
         y1
-        + L2 * np.sin(theta1 + theta2)
+        - L2 * np.cos(forearm_angle)
     )
 
     return x0, y0, x1, y1, x2, y2
 
 
+# ==========================================
+# Animation
+# ==========================================
 def move_robot(
         ax,
         L1,
@@ -145,6 +307,15 @@ def move_robot(
             markeredgewidth=3
         )
 
+        # Convert current theta2 to its
+        # physical 0°-270° representation.
+        theta2_deg = np.degrees(theta2)
+
+        if theta2_deg < 0:
+            theta2_servo = 360 + theta2_deg
+        else:
+            theta2_servo = theta2_deg
+
         # Information
         ax.text(
             0.02,
@@ -152,7 +323,8 @@ def move_robot(
             f"Target: ({target_x:.2f}, {target_y:.2f})\n"
             f"Current: ({x2:.2f}, {y2:.2f})\n"
             f"Theta 1: {np.degrees(theta1):.2f}°\n"
-            f"Theta 2: {np.degrees(theta2):.2f}°",
+            f"Theta 2: {theta2_deg:.2f}° (natural)\n"
+            f"Theta 2 servo: {theta2_servo:.2f}°",
             transform=ax.transAxes,
             verticalalignment="top"
         )
@@ -179,15 +351,59 @@ def move_robot(
 L1 = 5
 L2 = 4
 
+
 # ==========================================
 # Joint Limits
 # ==========================================
 
-THETA1_MIN = np.radians(-90)
-THETA1_MAX = np.radians(90)
+# ------------------------------------------
+# Shoulder
+#
+# -30° = clockwise/backward
+#   0° = resting/down
+# +90° = anticlockwise/right
+# +180° = up
+# ------------------------------------------
 
-THETA2_MIN = np.radians(0)
-THETA2_MAX = np.radians(180)
+THETA1_MIN = np.radians(-90)
+THETA1_MAX = np.radians(180)
+
+
+# ------------------------------------------
+# Elbow
+#
+# theta2 is RELATIVE to the upper arm.
+#
+#   0°   = arm completely straight
+#   +90° = natural anticlockwise bend
+#   +180° = completely folded
+#
+# IMPORTANT:
+#
+#   theta2 can NEVER be negative.
+#
+# A negative theta2 would bend the elbow
+# backward / into the unnatural configuration
+# we do not want.
+#
+# So the valid mathematical elbow range is:
+#
+#   0° <= theta2 <= 180°
+#
+# We keep the servo range at 0°-270° because
+# the physical servo itself may support that
+# range, but IK will only generate the natural
+# 0°-180° elbow configuration.
+# ------------------------------------------
+
+THETA2_MIN_DEG = 0
+THETA2_MAX_DEG = 270
+
+# Mathematical IK elbow limit
+THETA2_SIGNED_MIN_DEG = 0
+THETA2_SIGNED_MAX_DEG = 180
+
+
 # ==========================================
 # Starting joint angles
 # ==========================================
@@ -236,13 +452,18 @@ def on_click(event):
         target_y
     )
 
-    # Target unreachable
+    # Target unreachable / invalid
     if result is None:
         return
 
-    target_theta1, target_theta2 = result
+    (
+        target_theta1,
+        target_theta2,
+        target_theta2_servo
+    ) = result
 
     print("\nCalculated joint angles:")
+
     print(
         f"Theta 1 = "
         f"{np.degrees(target_theta1):.2f} degrees"
@@ -250,7 +471,13 @@ def on_click(event):
 
     print(
         f"Theta 2 = "
-        f"{np.degrees(target_theta2):.2f} degrees"
+        f"{np.degrees(target_theta2):.2f} degrees "
+        f"(natural)"
+    )
+
+    print(
+        f"Theta 2 servo = "
+        f"{target_theta2_servo:.2f} degrees"
     )
 
     # --------------------------------------
