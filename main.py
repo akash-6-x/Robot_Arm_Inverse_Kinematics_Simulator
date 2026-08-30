@@ -1,58 +1,20 @@
-# import numpy as np
-# import matplotlib.pyplot as plt
-#
-# # Robot link lengths
-# L1 = 5
-# L2 = 4
-#
-# # Joint angles
-# theta1 = np.radians(30)
-# theta2 = np.radians(45)
-#
-# # Base position
-# x0 = 0
-# y0 = 0
-#
-# # Position of joint 2
-# x1 = L1 * np.cos(theta1)
-# y1 = L1 * np.sin(theta1)
-#
-# # Position of end effector
-# x2 = x1 + L2 * np.cos(theta1 + theta2)
-# y2 = y1 + L2 * np.sin(theta1 + theta2)
-#
-# # Draw the robot
-# plt.plot([x0, x1, x2], [y0, y1, y2], marker='o')
-#
-# plt.xlim(-10, 10)
-# plt.ylim(-10, 10)
-# plt.grid()
-#
-# plt.xlabel("X")
-# plt.ylabel("Y")
-# plt.title("2-Link Robot")
-#
-# plt.show()
-
 import numpy as np
 import matplotlib.pyplot as plt
 
 plt.ion()
 
 
+# ==========================================
+# Inverse Kinematics
+# ==========================================
+
 def inverse_kinematics(L1, L2, target_x, target_y):
 
-    # -------------------------
     # Distance from base to target
-    # -------------------------
-
     r_squared = target_x ** 2 + target_y ** 2
     distance = np.sqrt(r_squared)
 
-    # -------------------------
     # Check whether target is reachable
-    # -------------------------
-
     if distance > L1 + L2:
         print("Target is unreachable: too far away.\n")
         return None
@@ -61,45 +23,31 @@ def inverse_kinematics(L1, L2, target_x, target_y):
         print("Target is unreachable: too close to the base.\n")
         return None
 
-    # -------------------------
-    # Calculate theta2
-    # -------------------------
-
+    # Calculate theta 2
     cos_theta2 = (
         r_squared - L1 ** 2 - L2 ** 2
     ) / (2 * L1 * L2)
 
+    # Protect against tiny floating-point errors
     cos_theta2 = np.clip(cos_theta2, -1, 1)
 
     theta2 = np.arccos(cos_theta2)
 
-    # -------------------------
-    # Calculate theta1
-    # -------------------------
-
+    # Calculate theta 1
     theta1 = (
         np.arctan2(target_y, target_x)
-        -
-        np.arctan2(
+        - np.arctan2(
             L2 * np.sin(theta2),
             L1 + L2 * np.cos(theta2)
         )
     )
 
-    # -------------------------
-    # Display result
-    # -------------------------
-
-    print("Target position:")
-    print(f"X = {target_x}")
-    print(f"Y = {target_y}")
-
-    print("\nCalculated joint angles:")
-    print(f"Theta 1 = {np.degrees(theta1):.2f} degrees")
-    print(f"Theta 2 = {np.degrees(theta2):.2f} degrees")
-
     return theta1, theta2
 
+
+# ==========================================
+# Animation
+# ==========================================
 
 def animate_arm(
         L1,
@@ -112,23 +60,16 @@ def animate_arm(
         target_y
 ):
 
-    # -------------------------
-    # Create the figure
-    # -------------------------
-
     fig, ax = plt.subplots()
 
     frames = 100
 
-    # -------------------------
-    # Animate
-    # -------------------------
-
     for i in range(frames + 1):
 
+        # Movement progress
         t = i / frames
 
-        # Gradually change the angles
+        # Gradually move the joint angles
         theta1 = (
             start_theta1
             + t * (target_theta1 - start_theta1)
@@ -160,13 +101,6 @@ def animate_arm(
         )
 
         # -------------------------
-        # Convert angles to degrees
-        # -------------------------
-
-        theta1_deg = np.degrees(theta1)
-        theta2_deg = np.degrees(theta2)
-
-        # -------------------------
         # Clear previous frame
         # -------------------------
 
@@ -179,8 +113,7 @@ def animate_arm(
         ax.plot(
             [x0, x1, x2],
             [y0, y1, y2],
-            marker="o",
-            linewidth=3
+            marker="o"
         )
 
         # -------------------------
@@ -196,19 +129,16 @@ def animate_arm(
         )
 
         # -------------------------
-        # Display information
+        # Information
         # -------------------------
 
         ax.text(
-            0.02,
-            0.97,
+            -9.5,
+            6,
             f"Target: ({target_x:.2f}, {target_y:.2f})\n"
             f"Current: ({x2:.2f}, {y2:.2f})\n"
-            f"Theta 1: {theta1_deg:.2f}°\n"
-            f"Theta 2: {theta2_deg:.2f}°",
-            transform=ax.transAxes,
-            verticalalignment="top",
-            fontsize=11
+            f"Theta 1: {np.degrees(theta1):.2f}°\n"
+            f"Theta 2: {np.degrees(theta2):.2f}°"
         )
 
         # -------------------------
@@ -229,42 +159,40 @@ def animate_arm(
             "2-Link Robot - Inverse Kinematics"
         )
 
-        # -------------------------
-        # Display frame
-        # -------------------------
-
+        # Show frame
         plt.pause(0.03)
 
+    plt.ioff()
     plt.show()
 
 
-# =========================================
-# Robot dimensions
-# =========================================
+# ==========================================
+# Robot
+# ==========================================
 
 L1 = 5
 L2 = 4
 
 
-# =========================================
-# Desired target position
-# =========================================
+# ==========================================
+# Target
+# ==========================================
 
 target_x = 6
 target_y = 5
 
 
-# =========================================
-# Starting robot position
-# =========================================
+# ==========================================
+# Current robot position
+# ==========================================
 
 start_theta1 = np.radians(0)
 start_theta2 = np.radians(0)
 
 
-# =========================================
-# Inverse Kinematics
-# =========================================
+# ==========================================
+# Calculate target angles using IK
+# ==========================================
 
 result = inverse_kinematics(
     L1,
@@ -274,18 +202,30 @@ result = inverse_kinematics(
 )
 
 
-# =========================================
+# ==========================================
 # If target is reachable
-# =========================================
+# ==========================================
 
 if result is not None:
 
     target_theta1, target_theta2 = result
 
-    # -------------------------
-    # Start animation
-    # -------------------------
+    print("Target position:")
+    print(f"X = {target_x}")
+    print(f"Y = {target_y}")
 
+    print("\nCalculated joint angles:")
+    print(
+        f"Theta 1 = "
+        f"{np.degrees(target_theta1):.2f} degrees"
+    )
+
+    print(
+        f"Theta 2 = "
+        f"{np.degrees(target_theta2):.2f} degrees"
+    )
+
+    # Start animation
     animate_arm(
         L1,
         L2,
