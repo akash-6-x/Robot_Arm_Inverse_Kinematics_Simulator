@@ -23,7 +23,12 @@ current_theta2 = np.radians(0)
 # Create Graph
 # ==========================================
 
-fig, ax = plt.subplots()
+fig, (ax, gauge_panel) = plt.subplots(
+    1,
+    2,
+    figsize=(11, 7),
+    gridspec_kw={"width_ratios": [4, 1.25], "wspace": 0.18}
+)
 
 
 # ==========================================
@@ -126,6 +131,7 @@ def on_click(event):
 
     print("Robot reached target.")
     set_status(ax, "Target reached.", "tab:green")
+    fig.canvas.draw_idle()
 
 
 # ==========================================
@@ -142,7 +148,7 @@ fig.canvas.mpl_connect(
 # Draw Initial Robot
 # ==========================================
 
-setup_robot_scene(ax, L1, L2)
+setup_robot_scene(ax, gauge_panel, L1, L2)
 draw_robot(
     ax,
     L1,

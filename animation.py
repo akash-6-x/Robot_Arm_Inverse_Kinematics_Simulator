@@ -4,13 +4,15 @@ import matplotlib.pyplot as plt
 from config import (
     THETA1_MAX,
     THETA1_MIN,
+    THETA2_MAX_DEG,
+    THETA2_MIN_DEG,
     THETA2_SIGNED_MAX_DEG,
     THETA2_SIGNED_MIN_DEG
 )
 from kinematics import robot_position
 
 
-def setup_robot_scene(ax, L1, L2):
+def setup_robot_scene(ax, gauge_panel, L1, L2):
 
     ax.set_xlim(-10, 10)
     ax.set_ylim(-10, 10)
@@ -83,6 +85,52 @@ def setup_robot_scene(ax, L1, L2):
     )
 
     ax._air_artists = trail, robot, target, info, status
+    ax._air_gauges = []
+
+    gauge_panel.axis("off")
+    gauge_panel.text(
+        0.5,
+        0.94,
+        "Joint Positions",
+        horizontalalignment="center",
+        verticalalignment="top",
+        fontsize=11,
+        fontweight="bold"
+    )
+
+    gauge_specs = [
+        ("Shoulder", np.degrees(THETA1_MIN), np.degrees(THETA1_MAX), "tab:blue"),
+        ("Elbow", THETA2_SIGNED_MIN_DEG, THETA2_SIGNED_MAX_DEG, "tab:purple"),
+        ("Servo", THETA2_MIN_DEG, THETA2_MAX_DEG, "tab:orange")
+    ]
+
+    for index, (name, minimum, maximum, color) in enumerate(gauge_specs):
+        gauge_ax = gauge_panel.inset_axes(
+            [0.05, 0.67 - index * 0.19, 0.90, 0.10]
+        )
+        gauge_ax.barh(0, 1, color="lightgray", height=0.55)
+        fill = gauge_ax.barh(0, 0, color=color, height=0.55)[0]
+        label = gauge_ax.text(
+            0.5,
+            0.5,
+            "",
+            transform=gauge_ax.transAxes,
+            horizontalalignment="center",
+            verticalalignment="center",
+            fontsize=8
+        )
+        gauge_ax.set_xlim(0, 1)
+        gauge_ax.set_ylim(-0.5, 0.5)
+        gauge_ax.set_yticks([])
+        gauge_ax.set_xticks([])
+        gauge_ax.set_title(
+            f"{name} [{minimum:.0f}° to {maximum:.0f}°]",
+            loc="left",
+            fontsize=7,
+            pad=1
+        )
+
+        ax._air_gauges.append((fill, label, minimum, maximum))
 
 
 def draw_robot(ax, L1, L2, theta1, theta2, target_x, target_y):
@@ -98,12 +146,17 @@ def draw_robot(ax, L1, L2, theta1, theta2, target_x, target_y):
     theta2_deg = np.degrees(theta2)
     theta2_servo = 360 + theta2_deg if theta2_deg < 0 else theta2_deg
 
+    gauge_values = [np.degrees(theta1), theta2_deg, theta2_servo]
+    for (fill, label, minimum, maximum), value in zip(
+        ax._air_gauges, gauge_values
+    ):
+        position = np.clip((value - minimum) / (maximum - minimum), 0, 1)
+        fill.set_width(position)
+        label.set_text(f"{value:.1f}°")
+
     info.set_text(
         f"Target: ({target_x:.2f}, {target_y:.2f})\n"
-        f"Current: ({x2:.2f}, {y2:.2f})\n"
-        f"Theta 1: {np.degrees(theta1):.2f}°\n"
-        f"Theta 2: {theta2_deg:.2f}° (natural)\n"
-        f"Theta 2 servo: {theta2_servo:.2f}°"
+        f"Current: ({x2:.2f}, {y2:.2f})"
     )
 
     return x2, y2
