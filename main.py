@@ -3,7 +3,12 @@ import matplotlib.pyplot as plt
 
 from config import L1, L2
 from kinematics import inverse_kinematics
-from animation import draw_robot, move_robot, setup_robot_scene
+from animation import (
+    draw_robot,
+    move_robot,
+    set_status,
+    setup_robot_scene
+)
 
 
 # ==========================================
@@ -65,6 +70,12 @@ def on_click(event):
     # --------------------------------------
 
     if result is None:
+        set_status(
+            ax,
+            "Target rejected: outside the current reachable limits.",
+            "tab:red"
+        )
+        fig.canvas.draw_idle()
         return
 
     (
@@ -72,6 +83,8 @@ def on_click(event):
         target_theta2,
         target_theta2_servo
     ) = result
+
+    set_status(ax, "Target accepted: moving robot.", "tab:green")
 
     # --------------------------------------
     # Display calculated angles
@@ -112,6 +125,7 @@ def on_click(event):
     )
 
     print("Robot reached target.")
+    set_status(ax, "Target reached.", "tab:green")
 
 
 # ==========================================
@@ -128,7 +142,7 @@ fig.canvas.mpl_connect(
 # Draw Initial Robot
 # ==========================================
 
-setup_robot_scene(ax)
+setup_robot_scene(ax, L1, L2)
 draw_robot(
     ax,
     L1,
