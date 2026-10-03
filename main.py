@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Button, TextBox
 
 from config import L1, L2
 from kinematics import inverse_kinematics
@@ -32,27 +33,16 @@ fig, (ax, gauge_panel) = plt.subplots(
 
 
 # ==========================================
-# Mouse Click Function
+# Target Movement
 # ==========================================
 
-def on_click(event):
+def move_to_target(target_x, target_y):
 
     global current_theta1
     global current_theta2
 
-    # --------------------------------------
-    # Ignore clicks outside graph
-    # --------------------------------------
-
-    if event.inaxes != ax:
-        return
-
-    # --------------------------------------
-    # Get clicked coordinates
-    # --------------------------------------
-
-    target_x = event.xdata
-    target_y = event.ydata
+    target_x_input.set_val(f"{target_x:.2f}")
+    target_y_input.set_val(f"{target_y:.2f}")
 
     print("\n-------------------------")
     print("New target selected:")
@@ -135,13 +125,28 @@ def on_click(event):
 
 
 # ==========================================
-# Connect Mouse
+# Input Controls
 # ==========================================
 
-fig.canvas.mpl_connect(
-    "button_press_event",
-    on_click
-)
+def on_target_submit(_):
+
+    try:
+        target_x = float(target_x_input.text)
+        target_y = float(target_y_input.text)
+    except ValueError:
+        set_status(ax, "Enter valid numeric X and Y coordinates.", "tab:red")
+        fig.canvas.draw_idle()
+        return
+
+    move_to_target(target_x, target_y)
+
+
+def on_click(event):
+
+    if event.inaxes != ax:
+        return
+
+    move_to_target(event.xdata, event.ydata)
 
 
 # ==========================================
@@ -158,5 +163,37 @@ draw_robot(
     0,
     -(L1 + L2)
 )
+
+gauge_panel.text(
+    0.5,
+    0.16,
+    "Target Position",
+    horizontalalignment="center",
+    verticalalignment="center",
+    fontsize=10,
+    fontweight="bold"
+)
+
+target_x_input = TextBox(
+    gauge_panel.inset_axes([0.04, 0.06, 0.42, 0.06]),
+    "X ",
+    initial="0.00",
+    textalignment="center"
+)
+target_y_input = TextBox(
+    gauge_panel.inset_axes([0.6, 0.06, 0.42, 0.06]),
+    "Y ",
+    initial=f"{- (L1 + L2):.2f}",
+    textalignment="center"
+)
+move_button = Button(
+    gauge_panel.inset_axes([0.25, -0.02, 0.50, 0.06]),
+    "Move",
+    color="lightsteelblue",
+    hovercolor="lightskyblue"
+)
+move_button.on_clicked(on_target_submit)
+
+fig.canvas.mpl_connect("button_press_event", on_click)
 
 plt.show()
