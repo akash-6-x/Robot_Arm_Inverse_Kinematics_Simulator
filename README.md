@@ -2,7 +2,7 @@
 
 An interactive Python simulator for a planar two-link robot arm. Select a target by clicking the graph or by entering exact X and Y coordinates. The simulator validates the target against the configured kinematics and joint limits, then animates the arm to a valid position.
 
-![AIR Project simulator sample output](/home/akash/Documents/VsCode/Python/Projects/AIR_Project/assets/sample-output.png)
+![AIR Project simulator sample output](assets/sample-output.png)
 
 > 🦾 A visual, constraint-aware 2D arm simulator built to make inverse kinematics easy to explore.
 
