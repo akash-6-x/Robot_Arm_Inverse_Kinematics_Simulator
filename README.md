@@ -35,7 +35,7 @@ The application uses one target-movement path for both mouse clicks and typed co
 
 - Python 3
 - NumPy
-- Matplotlib
+- Matplotlib 3.12
 
 ### Start
 
