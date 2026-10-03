@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from config import L1, L2
-from kinematics import inverse_kinematics, robot_position
-from animation import move_robot
+from kinematics import inverse_kinematics
+from animation import draw_robot, move_robot, setup_robot_scene
 
 
 # ==========================================
@@ -128,31 +128,15 @@ fig.canvas.mpl_connect(
 # Draw Initial Robot
 # ==========================================
 
-x0, y0, x1, y1, x2, y2 = robot_position(
+setup_robot_scene(ax)
+draw_robot(
+    ax,
     L1,
     L2,
     current_theta1,
-    current_theta2
-)
-
-ax.plot(
-    [x0, x1, x2],
-    [y0, y1, y2],
-    marker="o",
-    linewidth=3
-)
-
-ax.set_xlim(-10, 10)
-ax.set_ylim(-10, 10)
-
-ax.set_aspect("equal")
-ax.grid()
-
-ax.set_xlabel("X")
-ax.set_ylabel("Y")
-
-ax.set_title(
-    "2-Link Robot - Click to Move"
+    current_theta2,
+    0,
+    -(L1 + L2)
 )
 
 plt.show()
